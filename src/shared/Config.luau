@@ -19,8 +19,8 @@ local Config = {
 	SNAPSHOT_RATE = 1 / 30,
 
 	KINDS = {
-		drifter = { hp = 1, speed = 150, radius = 18, score = 10, homing = false },
-		hunter = { hp = 3, speed = 105, radius = 24, score = 30, homing = true },
+		drifter = { hp = 1, speed = 150, radius = 18, score = 10, homing = false, color = Color3.fromRGB(255, 45, 170) },
+		hunter = { hp = 3, speed = 105, radius = 24, score = 30, homing = true, color = Color3.fromRGB(255, 225, 60) },
 	},
 
 	COLORS = {

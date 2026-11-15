@@ -44,6 +44,11 @@ local function newSession(): any
 		fx = 0,
 		fxKind = "",
 		sendCd = 0,
+		kills = 0,
+		best = 0,
+		cleared = 0,
+		grade = "C",
+		events = {}, -- kills since the last snapshot: { x, y, points, kind }
 	}
 end
 
@@ -53,10 +58,12 @@ local function flash(s: any, kind: string)
 end
 
 local function startRun(s: any)
+	local best = s.best
 	local fresh = newSession()
 	for k, v in fresh do
 		s[k] = v
 	end
+	s.best = best
 	s.phase = "play"
 	s.wave = 1
 	Spawner.spawnWave(s, 1)
@@ -70,6 +77,9 @@ end
 local function endRound(s: any, won: boolean)
 	s.phase = "over"
 	s.won = won
+	s.cleared = if won then Config.FINAL_WAVE else s.wave - 1
+	s.best = math.max(s.best, s.score)
+	s.grade = if won and s.lives >= Config.LIVES then "S" elseif won then "A" elseif s.wave >= 4 then "B" else "C"
 	flash(s, won and "win" or "lose")
 end
 
@@ -130,6 +140,8 @@ local function stepBullets(s: any, dt: number)
 				e.hp -= 1
 				if e.hp <= 0 then
 					awardScore(s, def.score)
+					s.kills += 1
+					table.insert(s.events, { math.round(e.x), math.round(e.y), def.score, e.kind })
 					table.remove(s.enemies, j)
 					flash(s, "kill")
 				end
@@ -205,10 +217,16 @@ local function sendSnapshot(player: Player, s: any)
 		pickup = s.pickup,
 		fx = s.fx,
 		fxKind = s.fxKind,
+		kills = s.kills,
+		best = s.best,
+		cleared = s.cleared,
+		grade = s.grade,
+		events = s.events,
 	}
 	local ok, err = pcall(function()
 		stateEvent:FireClient(player, snapshot)
 	end)
+	s.events = {}
 	if not ok then
 		warn("snapshot failed: " .. tostring(err))
 	end
