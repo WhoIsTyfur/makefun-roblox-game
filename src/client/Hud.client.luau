@@ -131,12 +131,70 @@ for i = 1, 70 do
 	table.insert(stars, star)
 end
 
+-- Synthwave backdrop: sun on a horizon, perspective floor grid (pixel geometry from the viewport at load).
+local camera = workspace.CurrentCamera
+local vp = if camera then camera.ViewportSize else Vector2.new(1280, 720)
+local horizonY = vp.Y * 0.65
+local sunPx = vp.Y * 0.46
+local sun = make("Frame", {
+	AnchorPoint = CENTER,
+	Position = UDim2.fromOffset(vp.X / 2, horizonY - sunPx / 2),
+	Size = UDim2.fromOffset(sunPx, sunPx),
+	BackgroundColor3 = C.white,
+}, gui)
+make("UICorner", { CornerRadius = UDim.new(1, 0) }, sun)
+make("UIGradient", {
+	Rotation = 90,
+	Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, C.yellow),
+		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 140, 40)),
+		ColorSequenceKeypoint.new(1, C.magenta),
+	}),
+}, sun)
+for i, f in { 0.58, 0.66, 0.74, 0.81, 0.88, 0.94 } do
+	local chord = 2 * math.sqrt(math.max(0.25 - (f - 0.5) ^ 2, 0.001))
+	make("Frame", {
+		AnchorPoint = CENTER,
+		Position = UDim2.fromScale(0.5, f),
+		Size = UDim2.new(chord, 0, 0.012 + i * 0.008, 0),
+		BackgroundColor3 = C.bg,
+	}, sun)
+end
+local floor = make("Frame", {
+	Position = UDim2.fromOffset(0, horizonY),
+	Size = UDim2.fromOffset(vp.X, vp.Y - horizonY),
+	BackgroundColor3 = C.arena,
+	BackgroundTransparency = 0.35,
+	ClipsDescendants = true,
+}, gui)
+local floorH = vp.Y - horizonY
+for i = -14, 14 do
+	local dx, dy = i * vp.X * 0.11, floorH
+	make("Frame", {
+		AnchorPoint = CENTER,
+		Position = UDim2.fromOffset(vp.X / 2 + dx / 2, dy / 2),
+		Size = UDim2.fromOffset(math.sqrt(dx * dx + dy * dy), 2),
+		Rotation = math.deg(math.atan2(dy, dx)),
+		BackgroundColor3 = C.magenta,
+		BackgroundTransparency = 0.35,
+	}, floor)
+end
+for k = 1, 8 do
+	make("Frame", {
+		Position = UDim2.fromOffset(0, floorH * (k / 8) ^ 2),
+		Size = UDim2.new(1, 0, 0, 2),
+		BackgroundColor3 = C.magenta,
+		BackgroundTransparency = 0.35,
+	}, floor)
+end
+make("Frame", { Position = UDim2.fromOffset(0, horizonY - 1), Size = UDim2.new(1, 0, 0, 3), BackgroundColor3 = C.cyan }, gui)
+
 local arena = make("Frame", {
 	AnchorPoint = CENTER,
 	Position = ARENA_HOME,
 	Size = UDim2.fromScale(0.96, 0.84),
 	BackgroundColor3 = C.arena,
-	BackgroundTransparency = 0.15,
+	BackgroundTransparency = 0.6,
 	ClipsDescendants = true,
 }, gui)
 make("UIAspectRatioConstraint", { AspectRatio = W / H }, arena)
@@ -257,27 +315,61 @@ end
 -- HUD (play only), banner, flashes ---------------------------------------------------------------------
 
 local hud = make("Frame", { Size = FULL, BackgroundTransparency = 1, Visible = false }, gui)
-local scoreText = label("SCORE 0", 48, C.white, UDim2.fromScale(0.5, 0.05), hud, UDim2.fromScale(0.4, 0.08))
+
+local function hudPanel(cx: number, width: number, color: Color3): any
+	local p = make("Frame", {
+		AnchorPoint = CENTER,
+		Position = UDim2.fromScale(cx, 0.072),
+		Size = UDim2.fromScale(width, 0.12),
+		BackgroundColor3 = C.bg,
+		BackgroundTransparency = 0.25,
+	}, hud)
+	make("UICorner", { CornerRadius = UDim.new(0, 14) }, p)
+	make("UIStroke", { Color = color, Thickness = 3 }, p)
+	return p
+end
+
+local wavePanel = hudPanel(0.28, 0.22, C.cyan)
+local waveText = label("WAVE 1 / 6", 30, C.cyan, UDim2.fromScale(0.5, 0.3), wavePanel, UDim2.fromScale(0.95, 0.4))
+local waveBar = make("Frame", {
+	AnchorPoint = CENTER,
+	Position = UDim2.fromScale(0.5, 0.74),
+	Size = UDim2.fromScale(0.84, 0.24),
+	BackgroundColor3 = C.arena,
+}, wavePanel)
+make("UICorner", { CornerRadius = UDim.new(1, 0) }, waveBar)
+local waveFill = make("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = C.cyan }, waveBar)
+make("UICorner", { CornerRadius = UDim.new(1, 0) }, waveFill)
+
+local scorePanel = hudPanel(0.5, 0.2, C.magenta)
+label("SCORE", 28, C.magenta, UDim2.fromScale(0.5, 0.26), scorePanel, UDim2.fromScale(0.9, 0.3))
+local scoreText = label("0", 48, C.white, UDim2.fromScale(0.5, 0.67), scorePanel, UDim2.fromScale(0.9, 0.55))
 local scoreScale = make("UIScale", {}, scoreText)
-local waveText = label("WAVE 1 / 6", 30, C.cyan, UDim2.fromScale(0.5, 0.108), hud, UDim2.fromScale(0.4, 0.05))
-local livesBox = make("Frame", {
-	AnchorPoint = Vector2.new(1, 0.5),
-	Position = UDim2.fromScale(0.97, 0.062),
-	Size = UDim2.fromScale(0.3, 0.09),
-	BackgroundTransparency = 1,
-}, hud)
+
+local livesPanel = hudPanel(0.72, 0.2, C.cyan)
 make("UIListLayout", {
 	FillDirection = Enum.FillDirection.Horizontal,
-	HorizontalAlignment = Enum.HorizontalAlignment.Right,
+	HorizontalAlignment = Enum.HorizontalAlignment.Center,
 	VerticalAlignment = Enum.VerticalAlignment.Center,
-	Padding = UDim.new(0, 10),
-}, livesBox)
+	Padding = UDim.new(0, 12),
+}, livesPanel)
 local lifeIcons = {}
 for i = 1, Config.LIVES do
-	lifeIcons[i] = buildShip(livesBox, UDim2.fromOffset(46, 46), C.cyan)
+	lifeIcons[i] = buildShip(livesPanel, UDim2.fromOffset(52, 52), C.cyan)
 end
-local rapidText = label("", 28, C.yellow, UDim2.fromScale(0.82, 0.125), hud, UDim2.fromScale(0.3, 0.05))
-rapidText.TextXAlignment = Enum.TextXAlignment.Right
+local rapidText = label("", 28, C.yellow, UDim2.fromScale(0.72, 0.15), hud, UDim2.fromScale(0.2, 0.04))
+
+local comboPanel = make("Frame", {
+	AnchorPoint = Vector2.new(0, 1),
+	Position = UDim2.fromScale(0.04, 0.965),
+	Size = UDim2.fromScale(0.25, 0.09),
+	BackgroundColor3 = C.bg,
+	BackgroundTransparency = 0.25,
+}, hud)
+make("UICorner", { CornerRadius = UDim.new(0, 14) }, comboPanel)
+make("UIStroke", { Color = C.magenta, Thickness = 3 }, comboPanel)
+local comboText = label("COMBO 0  x1", 34, C.yellow, UDim2.fromScale(0.5, 0.5), comboPanel, UDim2.fromScale(0.95, 0.8))
+local comboScale = make("UIScale", {}, comboText)
 
 local hitFlash = make("Frame", { Size = FULL, BackgroundColor3 = C.magenta, BackgroundTransparency = 1 }, gui)
 local banner = label("", 120, C.white, UDim2.fromScale(0.5, 0.5), gui, UDim2.fromScale(0.9, 0.25))
@@ -507,17 +599,24 @@ local GRADE_COLORS: { [string]: Color3 } = { S = C.yellow, A = C.green, B = C.cy
 
 local latest: any = nil
 local phase = "title"
-local lastFx, lastWave, lastScore = 0, 0, 0
+local lastFx, lastWave, lastScore, lastMult = 0, 0, 0, 1
 local shake = 0
 
 local function updateHud(s: any)
-	scoreText.Text = "SCORE " .. s.score
+	scoreText.Text = tostring(s.score)
 	if s.score ~= lastScore then
 		lastScore = s.score
 		scoreScale.Scale = 1.3
 		tween(scoreScale, 0.25, { Scale = 1 }, Enum.EasingStyle.Back)
 	end
 	waveText.Text = "WAVE " .. math.max(s.wave, 1) .. " / " .. s.finalWave
+	waveFill.Size = UDim2.fromScale(math.clamp(s.progress, 0, 1), 1)
+	comboText.Text = "COMBO " .. s.combo .. "  x" .. s.mult
+	if s.mult ~= lastMult then
+		lastMult = s.mult
+		comboScale.Scale = 1.25
+		tween(comboScale, 0.25, { Scale = 1 }, Enum.EasingStyle.Back)
+	end
 	for i, icon in lifeIcons do
 		icon.Visible = i <= s.lives
 	end

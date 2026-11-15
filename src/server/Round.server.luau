@@ -48,6 +48,10 @@ local function newSession(): any
 		best = 0,
 		cleared = 0,
 		grade = "C",
+		combo = 0, -- kills in a row since the last hit; every 5 adds 1 to the score multiplier (max 5)
+		waveKills = 0,
+		waveTotal = 1,
+		god = false,
 		events = {}, -- kills since the last snapshot: { x, y, points, kind }
 	}
 end
@@ -55,6 +59,15 @@ end
 local function flash(s: any, kind: string)
 	s.fx += 1
 	s.fxKind = kind
+end
+
+-- Studio-only screenshot aid: with workspace attribute Showcase = true, a run starts at wave 5 and takes no damage.
+local function applyShowcase(s: any)
+	if RunService:IsStudio() and workspace:GetAttribute("Showcase") == true then
+		s.wave = 5
+		Spawner.spawnWave(s, 5)
+		s.god = true
+	end
 end
 
 local function startRun(s: any)
@@ -67,6 +80,8 @@ local function startRun(s: any)
 	s.phase = "play"
 	s.wave = 1
 	Spawner.spawnWave(s, 1)
+	applyShowcase(s)
+	s.waveTotal = #s.queue
 	flash(s, "wave")
 end
 
@@ -84,6 +99,10 @@ local function endRound(s: any, won: boolean)
 end
 
 local function loseLife(s: any)
+	if s.god then
+		return
+	end
+	s.combo = 0
 	s.lives -= 1
 	s.invuln = Config.INVULN_TIME
 	flash(s, "hit")
@@ -99,6 +118,8 @@ local function nextWave(s: any)
 	end
 	s.wave += 1
 	Spawner.spawnWave(s, s.wave)
+	s.waveTotal = #s.queue
+	s.waveKills = 0
 	s.pickup = {
 		x = math.random(80, Config.ARENA_W - 80),
 		y = math.random(80, Config.ARENA_H - 80),
@@ -139,9 +160,12 @@ local function stepBullets(s: any, dt: number)
 				dead = true
 				e.hp -= 1
 				if e.hp <= 0 then
-					awardScore(s, def.score)
+					s.combo += 1
+					s.waveKills += 1
 					s.kills += 1
-					table.insert(s.events, { math.round(e.x), math.round(e.y), def.score, e.kind })
+					local points = def.score * math.min(1 + s.combo // 5, 5)
+					awardScore(s, points)
+					table.insert(s.events, { math.round(e.x), math.round(e.y), points, e.kind })
 					table.remove(s.enemies, j)
 					flash(s, "kill")
 				end
@@ -218,6 +242,9 @@ local function sendSnapshot(player: Player, s: any)
 		fx = s.fx,
 		fxKind = s.fxKind,
 		kills = s.kills,
+		combo = s.combo,
+		mult = math.min(1 + s.combo // 5, 5),
+		progress = s.waveKills / math.max(s.waveTotal, 1),
 		best = s.best,
 		cleared = s.cleared,
 		grade = s.grade,
